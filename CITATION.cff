@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this software or the v14 seven-stage emergence framework, please cite it as below."
+type: software
+title: "Seven-stage computational emergence framework (v14)"
+abstract: "Python implementation of a seven-stage emergence chain from quantum vacuum to consciousness, with audit tables, quantitative guards, negative controls and explicit honesty boundaries."
+authors:
+  - family-names: "Yan"
+    given-names: "JianZhong"
+version: v14.0
+date-released: 2026-09-17
+repository-code: "https://github.com/yanjianzhong/piral-emergence.git"
+url: "https://github.com/yanjianzhong/piral-emergence"
+license: MIT
+keywords:
+  - computational cosmology
+  - emergence
+  - quantum fluctuation
+  - self-reference
+  - MERA
+  - discrete geometry
+  - reproducible research
+identifiers:
+ - description: "Concept DOI (all versions)"
+   type: doi
+   value: "10.5281/zenodo.22810162"
+ - description: "Version DOI (v14.0)"
+   type: doi
+   value: "10.5281/zenodo.22810162"

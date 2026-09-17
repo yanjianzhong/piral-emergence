@@ -133,8 +133,8 @@ python spiral_model_v14.py
 
 本 GitHub Release 可通过 **Zenodo–GitHub 集成** 自动归档并获版本 DOI：
 
-- Code: `https://github.com/yanjianzhong/piral-emergence-v14.git/releases/tag/v14.0`
-- Archive DOI: `https://doi.org/10.5281/zenodo.<XXXXXXX>`  ← Zenodo 同步后回填
+- Code: `https://github.com/yanjianzhong/piral-emergence/releases/tag/v14`
+- Archive DOI: `https://doi.org/10.5281/zenodo.22810162`  
 - 审计表：`spiral_v14_audit.md`（仓库根目录）
 
 **引用建议（论文/README 中）**：
@@ -161,4 +161,5 @@ python spiral_model_v14.py
 | P2 | 去掉 `max_L` 截断，改用 ξ/L 无量纲收敛 |
 
 本版本面向**开放复现与同行检验**，不构成最终理论断言。
-变化以周期性偏振，统一于空无；增长以螺旋式上升，起始于终结。
+变化以周期性偏振，统一于空无；
+增长以螺旋式上升，起始于终结。

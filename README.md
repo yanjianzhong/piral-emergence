@@ -270,39 +270,39 @@ v14 的数值验证：spiral_loop() 跑通，**EXIT=0，流程守卫 39/40 通�
 
 ```
 .
-├── README.md                      	# 项目说明：七阶段叙事脉络 × 核心数值结论 × 分层许可表 × 诚实边界声明
-├── LICENSE                        		# Apache-2.0 主许可证（v14.1+ 代码适用，含专利授权与报复终止条款）
+├── README.md                      # 项目说明：七阶段叙事脉络 × 核心数值结论 × 分层许可表 × 诚实边界声明
+├── LICENSE                        # Apache-2.0 主许可证（v14.1+ 代码适用，含专利授权与报复终止条款）
 ├── LICENSE-MIT-v14.0-legacy.md    # v14.0 历史快照的 MIT 许可存档（保留供旧 tag/旧 DOI record 追溯）
-├── CITATION.cff                   	# 引用元数据：软件标题/作者/版本/DOI，GitHub "Cite this repository" 数据源
-├── NOTICE                         		# Apache-2.0 强制分发文件：版权声明 + 项目名 + 商标不使用声明
-├── CONTRIBUTING.md              # 贡献指南：DCO Signed-off-by 流程 + 轻量 CLA + 修改标注要求 + 审计守卫规范
-├── .gitignore                     		# Git 排除规则（排除 __pycache__、临时产物等）
-├── requirements.txt               	# Python 依赖清单（numpy/scipy/matplotlib/quimb/networkx/torch）
+├── CITATION.cff                   # 引用元数据：软件标题/作者/版本/DOI，GitHub "Cite this repository" 数据源
+├── NOTICE                         # Apache-2.0 强制分发文件：版权声明 + 项目名 + 商标不使用声明
+├── CONTRIBUTING.md                # 贡献指南：DCO Signed-off-by 流程 + 轻量 CLA + 修改标注要求 + 审计守卫规范
+├── .gitignore                     # Git 排除规则（排除 __pycache__、临时产物等）
+├── requirements.txt               # Python 依赖清单（numpy/scipy/matplotlib/quimb/networkx/torch）
 │
 ├── spiral_model_v14-1.py          # 核心模型 L1–L2：真空叠加 / 横场 Ising / 量子涨落
 ├── spiral_model_v14-2.py          # 核心模型 L3–L4：自指秩1化 / MERA 全息压缩
-├── spiral_metric_v14-1.py         	# 指标 L1–L4：Schmidt 谱 / 纠缠诊断 / 守卫计算
-├── spiral_metric_v14-2.py         	# 指标 L5–L7：离散曲率 / Gray-Scott / 二阶自指约定值
-├── spiral_v14_prepare.py          	# 数据/种子准备（参考侧自建种子由此生成）
-├── spiral_v14_audit.md            	# 七阶段审计表（成熟度分级 + 诚实边界 + 理论接口）
-├── spiral_v14_说明.md             	# 中文补充说明（面向读者的人话版导读）
+├── spiral_metric_v14-1.py         # 指标 L1–L4：Schmidt 谱 / 纠缠诊断 / 守卫计算
+├── spiral_metric_v14-2.py         # 指标 L5–L7：离散曲率 / Gray-Scott / 二阶自指约定值
+├── spiral_v14_prepare.py          # 数据/种子准备（参考侧自建种子由此生成）
+├── spiral_v14_audit.md            # 七阶段审计表（成熟度分级 + 诚实边界 + 理论接口）
+├── spiral_v14_说明.md             # 中文补充说明（面向读者的人话版导读）
 ├── spiral_v14_Release.md          # v14 发布说明文档（含七阶段成熟度、诚实边界、负对照摘要）
-├── _v14_run.log                   	# 完整运行日志（EXIT=0，守卫 39/40）
+├── _v14_run.log                   # 完整运行日志（EXIT=0，守卫 39/40）
 │
 ├── data/
-│   ├── _v13_cache/                	# v13 历史缓存（v14 已弃用，仅留作对照基线）
-│   │   ├── bz_reading.npz         	#   Reading 序列缓存（三条序列"未检出"周期）
-│   │   ├── bz_soton.npz           	#   Soton 序列缓存
-│   │   └── clip_gs.npz            	#   Gray-Scott 初始条件缓存
-│   └── _v14_cache/                	# v14 主缓存
+│   ├── _v13_cache/                # v13 历史缓存（v14 已弃用，仅留作对照基线）
+│   │   ├── bz_reading.npz         #   Reading 序列缓存（三条序列"未检出"周期）
+│   │   ├── bz_soton.npz           #   Soton 序列缓存
+│   │   └── clip_gs.npz            #   Gray-Scott 初始条件缓存
+│   └── _v14_cache/                # v14 主缓存
 │       ├── archive_provenance.json #   存档来源/生成记录（可复现溯源）
-│       └── gs_seeds.npz           	#   Gray-Scott 初始种子（自建种子，phi 退化为恒等式）
+│       └── gs_seeds.npz           #   Gray-Scott 初始种子（自建种子，phi 退化为恒等式）
 │
 └── result/
-    ├── spiral_v14.png             	# 主演化示意图
+    ├── spiral_v14.png             # 主演化示意图
     ├── spiral_v14_metrics.png     # 指标汇总图
-    ├── _v14_data.json             	# 指标数值导出（供 spiral_v14_audit.md 表格直接引用）
-    └── _v14_hj_scan.png           	# H-J 参数扫描图
+    ├── _v14_data.json             # 指标数值导出（供 spiral_v14_audit.md 表格直接引用）
+    └── _v14_hj_scan.png           # H-J 参数扫描图
 ```
 
 > **说明**：`data/_v13_cache/` 为历史对照数据，**v14 主流程不依赖它**；若只复现 v14，可忽略该目录。`data/_v14_cache/` 与 `result/` 由 `spiral_v14_prepare.py` 与主脚本运行后生成/读取。

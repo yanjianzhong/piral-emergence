@@ -314,8 +314,18 @@ v14 的数值验证：spiral_loop() 跑通，**EXIT=0，流程守卫 39/40 通�
 要求 **Python 3.10+**。
 
 ```bash
-git clone https://github.com/yanjianzhong/piral-emergence-v14.git
-cd piral-emergence-v14
+git clone https://github.com/yanjianzhong/piral-emergence.git
+cd piral-emergence
+
+pip install -r requirements.txt
+
+# Core seven-stage pipeline (adjust entry scripts as needed)
+python spiral_v14_prepare.py
+python spiral_model_v14.py
+
+# Audit/guard outputs
+cat result/*.md
+cat _v14_run.log
 ```
 
 主要依赖：`numpy`、`scipy`、`matplotlib`，以及 MERA 阶段用到的张量网络库（如 `quimb`）。

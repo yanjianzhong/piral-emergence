@@ -1,0 +1,19 @@
+Spiral Emergence Framework v14 (spiral-emergence-v14)
+Copyright 2026 YanJianzhong
+
+Licensed under the Apache License, Version 2.0.
+See LICENSE file for full text.
+
+This product includes numerical implementations of a seven-stage
+computational emergence chain (vacuum → quantum fluctuation →
+self-reference → holography → discrete geometry → reaction-diffusion
+patterns → second-order self-reference), with audit tables, quantitative
+guards, and negative controls.
+
+No trademark rights are granted. The name "Spiral Emergence",
+"spiral-emergence-v14", and any associated logos require prior written
+permission for commercial use or endorsement.
+
+Third-party dependencies (numpy, scipy, matplotlib, quimb, networkx,
+torch) are distributed under their respective licenses and are not
+covered by this NOTICE.

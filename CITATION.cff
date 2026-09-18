@@ -10,7 +10,7 @@ version: v14.0
 date-released: 2026-09-17
 repository-code: "https://github.com/yanjianzhong/piral-emergence.git"
 url: "https://github.com/yanjianzhong/piral-emergence"
-license: MIT
+license: Apache-2.0
 keywords:
   - computational cosmology
   - emergence

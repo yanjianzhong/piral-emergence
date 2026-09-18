@@ -36,23 +36,758 @@
 import os
 import json
 
+import networkx as nx
+import scipy.sparse as sp
 import numpy as np
-from scipy import ndimage as _ndi
 
-from spiral_metric import (
-    record_metric, record_guard, guard_pass_rate,
-    fit_central_charge,
-    # ---- 既有的指标函数, 原样复用 (不改定义, 不改阈值) ----
-    metric_gap_closure, metric_mera_consistency,
-    metric_chain_rmse, metric_entropy_kl,
-    metric_correlation_exponent, metric_jordan_peak,
-    print_health_report,
-    # ---- 维度无关的辅助函数 (第三层改用得上) ----
-    _band_power, _delta2, _char_scale, _xi_from_fft, _first_zero,
-    _mode_census, _shape_residual,
-    # ---- 只被作图用到的两个 (2.3 关联衰减指数面板要在图上重画那条拟合线) ----
-    exact_ground_state, boundary_correlation_graph,
-)
+from scipy import ndimage  
+from scipy.sparse.linalg import eigsh
+
+# from spiral_metric import (
+#     record_metric, record_guard, guard_pass_rate,
+#     fit_central_charge,
+#     # ---- 既有的指标函数, 原样复用 (不改定义, 不改阈值) ----
+#     metric_gap_closure, metric_mera_consistency,
+#     metric_chain_rmse, metric_entropy_kl,
+#     metric_correlation_exponent, metric_jordan_peak,
+#     print_health_report,
+#     # ---- 维度无关的辅助函数 (第三层改用得上) ----
+#     _band_power, _delta2, _char_scale, _xi_from_fft, _first_zero,
+#     _mode_census, _shape_residual,
+#     # ---- 只被作图用到的两个 (2.3 关联衰减指数面板要在图上重画那条拟合线) ----
+#     exact_ground_state, boundary_correlation_graph,
+# )
+
+
+# ============================================================================
+# v12 · 指标注册表 + 守卫注册表  (体检报告的两块基石)
+# ============================================================================
+#
+# 为什么要有注册表, 而不是把数字直接 print 出来?
+#   因为"打印一个数字"是不可证伪的。v11 说"曲率锚点全部到机器精度",
+#   这句话没有任何代码能判定它错。注册表把每个数字绑上
+#      定义 / 计算方法 / 参照(基线) / 目标 / 实测
+#   于是"达标与否"变成一个 bool, 而 bool 是可以被证伪的。
+#
+# 与 CHAIN 的分工:
+#   CHAIN  记录 阶段之间怎么连接 (上游物理量 -> 下游参数)
+#   METRICS 记录 连接之后对不对 (实测 vs 基线 vs 目标)
+#   GUARDS 记录 哪些前提必须成立 (可证伪的守卫, 汇成一个通过率)
+
+METRICS = []   # 三层指标 (tier 1/2/3)
+GUARDS = []    # 可证伪守卫 (通过率 = 应当通过者中通过的比例)
+
+
+def record_metric(tier, name, symbol, definition, method, reference,
+                  measured, baseline, target, passed, note=''):
+    """
+    记录一条指标。
+
+    tier      1=内部自洽性  2=微观物理对标  3=宏观结构/Surrogate 对标
+    name      中文指标名          symbol    符号或公式
+    definition 定义 (一句话说清"这个数在量什么")
+    method    计算方法 (用哪个函数/哪条公式算出来的)
+    reference 参照物 —— 第1层是 v11 基线, 第2层是解析解, 第3层是数据来源
+    measured  实测值      baseline 基线值      target 目标 (字符串, 便于写不等式)
+    passed    True/False, 或 None 表示"只能诊断, 不给数值判定"
+    """
+    rec = {
+        'tier': int(tier),
+        'name': name,
+        'symbol': symbol,
+        'definition': definition,
+        'method': method,
+        'reference': reference,
+        'measured': _jsonable(measured),
+        'baseline': _jsonable(baseline),
+        'target': target,
+        'passed': None if passed is None else bool(passed),
+        'note': note,
+    }
+    METRICS.append(rec)
+    return rec
+
+
+def record_guard(name, where, condition, ok, expect_pass=True, note=''):
+    """
+    记录一条守卫。守卫 = 一个**可证伪**的检查: 条件明确, 且可能失败。
+
+    expect_pass=False 表示"设计上就应当失败"的诊断项 —— 例如 v11 阶段三-c
+    的权重自由变体本来就不该秩 1 化。这类项**不计入通过率**:
+    否则通过率可以靠塞进注定失败的项做低, 也可以靠删掉它们做高。
+    一个诚实的通过率必须先把"该通过的"和"只想看看的"分开。
+    """
+    rec = {'name': name, 'where': where, 'condition': condition,
+           'ok': bool(ok), 'expect_pass': bool(expect_pass), 'note': note}
+    GUARDS.append(rec)
+    return rec
+
+
+def guard_pass_rate():
+    """应当通过的守卫里, 实际通过的比例。诊断项单列, 不混入分母。"""
+    exp = [g for g in GUARDS if g['expect_pass']]
+    diag = [g for g in GUARDS if not g['expect_pass']]
+    n_pass = sum(1 for g in exp if g['ok'])
+    return {'n_pass': n_pass, 'n_expect': len(exp),
+            'rate': (n_pass / len(exp)) if exp else float('nan'),
+            'n_diag': len(diag),
+            'n_diag_notok': sum(1 for g in diag if not g['ok'])}
+
+
+def _jsonable(v):
+    """把 numpy 标量转成原生 Python, 供 json.dump 使用。"""
+    if isinstance(v, (np.integer,)):
+        return int(v)
+    if isinstance(v, (np.floating,)):
+        return float(v)
+    if isinstance(v, (np.bool_,)):
+        return bool(v)
+    if isinstance(v, np.ndarray):
+        return v.tolist()
+    return v
+
+
+def _deep_jsonable(v):
+    """
+    `_jsonable` 只管最外层 —— 指标函数的返回值里嵌着 numpy 数组
+    (例如 P(k) 的分壳结果、形态学泛函的曲线), 直接塞进 json.dump 会在
+    第 4 层抛 "Object of type ndarray is not JSON serializable"。
+    这里递归下去, 叶子仍交给 `_jsonable`。
+    """
+    v = _jsonable(v)          # ndarray -> list 也在这里发生
+    if isinstance(v, dict):
+        return {str(k): _deep_jsonable(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [_deep_jsonable(x) for x in v]
+    if isinstance(v, (str, int, float, bool)) or v is None:
+        return v
+    return str(v)
+
+
+def _fmt_val(v):
+    """体检报告里的数值格式: 极小/极大自动切科学计数法。"""
+    if v is None:
+        return '—'
+    if isinstance(v, str):
+        return v
+    if isinstance(v, bool):
+        return '是' if v else '否'
+    if isinstance(v, float):
+        if not np.isfinite(v):
+            return 'nan' if np.isnan(v) else ('inf' if v > 0 else '-inf')
+        a = abs(v)
+        if a != 0.0 and (a < 1e-3 or a >= 1e5):
+            return f'{v:.3e}'
+        return f'{v:.4f}'
+    return str(v)
+
+
+_TIER_TITLE = {
+    1: '第一层 · 内部自洽性 (模型对自己)',
+    2: '第二层 · 微观物理对标 (模型对解析解)',
+    3: '第三层 · 宏观结构 / Surrogate 对标 (模型对外部数据)',
+}
+
+_TIER_SHORT = {
+    1: '内部自洽性',
+    2: '微观物理对标',
+    3: '宏观结构对标',
+}
+
+
+def print_health_report():
+    """体检报告主表: 三层指标逐条列出, 最后给达标汇总与守卫通过率。"""
+    print("\n" + "=" * 76)
+    print("  体检报告 · 三层量化指标 (v12)")
+    print("=" * 76)
+
+    for tier in (1, 2, 3):
+        rows = [m for m in METRICS if m['tier'] == tier]
+        if not rows:
+            continue
+        print(f"\n  ── {_TIER_TITLE[tier]} ──")
+        for i, m in enumerate(rows, 1):
+            if m['passed'] is None:
+                verdict = '[诊断]'
+            else:
+                verdict = '[达标]' if m['passed'] else '[未达标]'
+            print(f"\n  {tier}.{i} {m['name']}   {m['symbol']}   {verdict}")
+            print(f"      定义: {m['definition']}")
+            print(f"      方法: {m['method']}")
+            print(f"      参照: {m['reference']}")
+            print(f"      实测 = {_fmt_val(m['measured'])}   "
+                  f"基线 = {_fmt_val(m['baseline'])}   目标: {m['target']}")
+            if m['note']:
+                print(f"      诚实边界: {m['note']}")
+
+    # ---- 守卫段 ----
+    print(f"\n  ── 守卫通过率 (可证伪检查) ──")
+    for g in GUARDS:
+        tag = '通过' if g['ok'] else '未通过'
+        mark = '' if g['expect_pass'] else '  [诊断项, 不计入分母]'
+        print(f"      {g['name']:6s} {g['where']:34s} {tag}{mark}")
+        if g['condition']:
+            print(f"             条件: {g['condition']}")
+        if g['note']:
+            print(f"             注: {g['note']}")
+    gpr = guard_pass_rate()
+    print(f"\n      通过率 = {gpr['n_pass']}/{gpr['n_expect']} = {gpr['rate']:.1%}"
+          f"   (另有诊断项 {gpr['n_diag']} 项, 其中未通过 "
+          f"{gpr['n_diag_notok']} 项 —— 那是设计上就该失败的对照)")
+
+    # ---- 汇总 ----
+    print("\n  ── 汇总 ──")
+    tot_ok = tot = 0
+    for tier in (1, 2, 3):
+        rows = [m for m in METRICS if m['tier'] == tier]
+        if not rows:
+            continue
+        ok = sum(1 for m in rows if m['passed'])
+        n = sum(1 for m in rows if m['passed'] is not None)
+        diag = len(rows) - n
+        tot_ok += ok
+        tot += n
+        extra = f"  (另有诊断项 {diag} 项)" if diag else ""
+        print(f"      第{tier}层 ({_TIER_SHORT[tier]}): 达标 {ok}/{n}{extra}")
+    print(f"      合计: 达标 {tot_ok}/{tot}")
+
+def _cic_power_window(kgrids, dx):
+    """
+    CIC 赋值的**功率**窗 |W(k)|^2 = prod_a sinc^2(k_a dx / 2)。
+
+    要除以的就是它本身, 只除一次 —— CIC 把密度与核 W_cic 卷积, 于是在功率谱上
+    出现的是 |W_cic|^2 = prod sinc^2(k_a dx/2)。再平方一次(除以窗的平方)
+    会静默地把高 k 抬起来, 曲线看上去照样"很正常"。这是本函数唯一值得注释的地方。
+
+    约定的坑: numpy 的 np.sinc(u) = sin(pi u)/(pi u), 所以 sinc(k dx/2) 必须写成
+    np.sinc(k*dx/(2*pi))。写成 np.sinc(k*dx/2) 同样是静默错误。
+
+    形状: 返回的数组与 rfftn 的输出同形 (最后一轴可以是半轴)。
+    """
+    shape = tuple(len(k) for k in kgrids)
+    w = np.ones(shape, dtype=np.float64)
+    for a, kg in enumerate(kgrids):
+        sh = [1] * len(kgrids)
+        sh[a] = len(kg)
+        w = w * np.sinc(kg.reshape(sh) * dx / (2 * np.pi)) ** 2
+    return w
+
+def _kgrids(shape, box, real_last=False):
+    """各轴的角波数网格 (rad / Mpc/h)。real_last=True 时最后一轴取 rfft 的半轴。"""
+    ks = []
+    for a, n in enumerate(shape):
+        d = box / n
+        if real_last and a == len(shape) - 1:
+            ks.append(np.fft.rfftfreq(n, d=d) * 2 * np.pi)
+        else:
+            ks.append(np.fft.fftfreq(n, d=d) * 2 * np.pi)
+    return ks
+
+def _band_power(delta, box, dim, deconv=True):
+    """
+    各向同性功率谱 P(k), 按 |k| 球壳分箱。
+
+    归一化约定 (写死在这里, 因为它是最容易静默错一个因子 6 的地方):
+        P(k) = |delta_k|^2 * box^dim / N^(2*dim)
+    使得  int d^dim k / (2 pi)^dim  P(k)  =  sigma^2。
+    球壳用 **该壳内实际 |k| 的均值** 作为横坐标, 不用箱中心 —— 低 k 处球壳很稀疏
+    (基频壳只有 6 个模), 用箱中心会制造假散布。
+    """
+    ng = delta.shape
+    ntot = int(np.prod(ng))
+    fk = np.fft.rfftn(delta)
+    ks = _kgrids(ng, box, real_last=True)
+    kfull = _kgrids(ng, box, real_last=False)
+    p = np.abs(fk) ** 2 * box ** dim / ntot ** 2
+    if deconv:
+        p = p / _cic_power_window(ks, box / ng[0])
+    kmag = np.sqrt(sum((k ** 2).reshape([len(k) if a == b else 1
+                                         for b in range(dim)])
+                       for a, k in enumerate(ks))).ravel()
+    pb = p.ravel()
+    kf = 2 * np.pi / box
+    edges = np.arange(0.5 * kf, kmag.max() + kf, kf)
+    idx = np.digitize(kmag, edges) - 1
+    keep = (idx >= 0) & (idx < len(edges) - 1)
+    idx, kmag, pb = idx[keep], kmag[keep], pb[keep]
+    n_modes = np.bincount(idx, minlength=len(edges) - 1)
+    kmean = np.bincount(idx, weights=kmag, minlength=len(edges) - 1) / np.maximum(n_modes, 1)
+    pmean = np.bincount(idx, weights=pb, minlength=len(edges) - 1) / np.maximum(n_modes, 1)
+    m = n_modes > 0
+    return {'k': kmean[m], 'P': pmean[m], 'n_modes': n_modes[m],
+            'k_fund': float(kf), 'k_nyq': float(np.pi * ng[0] / box)}
+
+
+def _delta2(k, P, dim):
+    """无量纲带功率 Delta^2(k) = k^dim P(k) / (2 pi)^dim * S_(dim-1)。"""
+    s = 4 * np.pi if dim == 3 else (2 * np.pi if dim == 2 else 2.0)
+    return k ** dim * P / (2 * np.pi) ** dim * s
+
+
+def _trapz(y, x):
+    """梯形积分 (自己写: numpy 2.x 把 np.trapz 改名了, 不引版本分支)。"""
+    y = np.asarray(y, dtype=np.float64)
+    x = np.asarray(x, dtype=np.float64)
+    return float(np.sum(0.5 * (y[1:] + y[:-1]) * np.diff(x)))
+
+
+def _xi_from_fft(delta, box, deconv=True):
+    """
+    由 FFT 自相关 (Wiener-Khinchin) 得两点相关 xi(r)。
+
+    对全盒做各向同性平均有偏 (积分约束): xi_est(r) = xi_true(r) - (1/V) int xi dV。
+    本函数减掉盒内的 xi 均值做积分约束修正, 并返回修正前的值以便对照。
+
+    deconv: 参考侧是 CIC 赋值的粒子场, 要除以赋值窗; 模型侧是连续场, **不能**除
+    —— 对连续场除一个 CIC 窗等于凭空注入一个错误的谱形。
+    """
+    shape = delta.shape
+    ntot = int(np.prod(shape))
+    fk = np.fft.fftn(delta)
+    ks = _kgrids(shape, box)
+    ps = np.abs(fk) ** 2
+    if deconv:
+        ps = ps / _cic_power_window(ks, box / shape[0])
+    ac = np.real(np.fft.ifftn(ps)) / ntot
+
+    # 周期的最近像距离 (每轴各自按自己的长度 reshape 后再相加, 否则广播成 1D)
+    rmag = np.zeros(shape, dtype=np.float64)
+    for a, n in enumerate(shape):
+        i = np.arange(n)
+        r1 = np.minimum(i, n - i) * (box / n)
+        sh = [1] * len(shape)
+        sh[a] = n
+        rmag = rmag + (r1 ** 2).reshape(sh)
+    rmag = np.sqrt(rmag)
+    dx = box / shape[0]
+    nb = max(int(min(shape) / 2) - 1, 2)
+    edges = np.arange(0.0, nb * dx + dx, dx)
+    idx = np.digitize(rmag.ravel(), edges) - 1
+    keep = (idx >= 0) & (idx < len(edges) - 1)
+    idx = idx[keep]
+    cnt = np.bincount(idx, minlength=len(edges) - 1)
+    got = np.bincount(idx, weights=ac.ravel()[keep], minlength=len(edges) - 1)
+    rmean = (np.bincount(idx, weights=rmag.ravel()[keep], minlength=len(edges) - 1)
+             / np.maximum(cnt, 1))
+    xmean = got / np.maximum(cnt, 1)
+    m = cnt > 0
+    xi_raw = xmean[m]
+    return {'r': rmean[m], 'xi_raw': xi_raw,
+            'xi': xi_raw - float(np.mean(xi_raw)),
+            'V': float(box ** len(shape))}
+
+
+def _first_zero(r, y):
+    """xi(r) 的第一个过零点 (线性内插)。没有过零则返回 nan。"""
+    s = np.sign(y)
+    for i in range(len(s) - 1):
+        if s[i] > 0 and s[i + 1] <= 0:
+            f = y[i] / (y[i] - y[i + 1])
+            return float(r[i] + f * (r[i + 1] - r[i]))
+    return float('nan')
+
+
+def _mode_census(delta):
+    """
+    「这个场有几个独立自由度?」—— 把 |delta_k|^2 按模从大到小排, 数出承载
+    50% / 90% 功率各需多少个**模**。
+
+    为什么要按模而不是按**球壳**: 壳平均会把锁模藏起来。一个 36x36 的锁模格子
+    只有几个壳有功率, 看起来"壳数不多但也不算少"; 而按模一数就露馅 ——
+    683 个非零模里个位数承载了一半功率。壳数不等于自由度数。
+    """
+    fk = np.fft.rfftn(np.asarray(delta, dtype=np.float64)).copy()
+    fk.ravel()[0] = 0.0                      # 去掉 DC (减均值后本应为 0)
+    p = (np.abs(fk) ** 2).ravel()
+    p = p[p > 0]
+    if len(p) == 0:
+        return 0, 0, 0
+    cum = np.cumsum(np.sort(p)[::-1]) / p.sum()
+    return (int(np.searchsorted(cum, 0.50) + 1),
+            int(np.searchsorted(cum, 0.90) + 1), int(len(p)))
+
+
+def _model_field(s6):
+    """阶段六 v 场 -> 归一化涨落 delta = v/<v> - 1, 以及它的二维 P(k)/xi/空洞。"""
+    v = np.asarray(s6['v'], dtype=np.float64)
+    vb = float(v.mean())
+    return v / vb - 1.0 if vb > 0 else v - v.mean()
+
+
+def _char_scale(delta, box, deconv=True):
+    """场的特征尺度: 谱峰处的波长 2 pi / k_peak。"""
+    pk = _band_power(delta, box, 2, deconv=deconv)
+    if len(pk['k']) == 0:
+        return float('nan'), pk
+    i = int(np.argmax(_delta2(pk['k'], pk['P'], 2)))
+    return float(2 * np.pi / pk['k'][i]), pk
+
+def _shape_residual(x_a, y_a, x_b, y_b, n_grid=16):
+    """
+    两条曲线在公共 x 区间上的对数形状残差, 各自归一到"在 ln x 上积分为 1"。
+    归一化掉振幅之后比较的就只剩**形状**。区间无交集时返回 nan。
+    """
+    lo, hi = max(x_a.min(), x_b.min()), min(x_a.max(), x_b.max())
+    if not (hi > lo) or len(x_a) < 2 or len(x_b) < 2:
+        return float('nan'), np.zeros(0), np.zeros(0), np.zeros(0)
+    g = np.exp(np.linspace(np.log(lo), np.log(hi), n_grid))
+    la = np.interp(np.log(g), np.log(x_a), np.log(y_a))
+    lb = np.interp(np.log(g), np.log(x_b), np.log(y_b))
+    w = np.log(hi) - np.log(lo)
+    la = la - _trapz(la, np.log(g)) / w
+    lb = lb - _trapz(lb, np.log(g)) / w
+    return float(np.sqrt(np.mean((la - lb) ** 2))), g, la, lb
+
+def entanglement_curve(psi, L):
+    """S(n) = -Tr rho_A ln rho_A, A = 前 n 个连续站点 (n = 1..L//2)"""
+    psi = np.asarray(psi).reshape(-1)
+    psi = psi / np.linalg.norm(psi)
+    out = []
+    for n in range(1, L // 2 + 1):
+        m = psi.reshape(2 ** n, 2 ** (L - n))
+        s = np.linalg.svd(m, compute_uv=False)
+        p = s ** 2
+        p = p[p > 1e-15]
+        out.append(float(-np.sum(p * np.log(p))))
+    return np.array(out)
+
+def fit_central_charge(psi, L):
+    """
+    周期 CFT 的 Calabrese-Cardy 公式:
+        S(n) = (c/3) ln[ (L/pi) sin(pi n / L) ] + const
+    对 [ln(...), 1] 做线性最小二乘, 斜率 -> c = 3 * slope。
+    返回的 rms 是"这个公式是否成立"的残差, 不是 c 的误差棒。
+    """
+    ns = np.arange(1, L // 2 + 1)
+    x = np.log((L / np.pi) * np.sin(np.pi * ns / L))
+    y = entanglement_curve(psi, L)
+    A = np.vstack([x, np.ones_like(x)]).T
+    coef, *_ = np.linalg.lstsq(A, y, rcond=None)
+    rms = float(np.sqrt(np.mean((y - A @ coef) ** 2)))
+    return {'c': 3.0 * coef[0], 'const': coef[1], 'rms': rms,
+            'x': x, 'S': y, 'ns': ns}
+
+
+# ============================================================================
+# v12 · 指标层 I/II: 内部自洽性 + 微观物理对标
+# ============================================================================
+#
+# 每个函数算完就 record_metric(...) 落一条账, 并返回自己的明细 dict 供打印/JSON。
+# 三条约定:
+#   1. 目标都是本项目自设的**工程阈值**, 不是文献标准 —— 报告里如实标注。
+#   2. **只报告不追目标**: 没达标时给的是差距诊断, 不是调参重算。
+#   3. 参照物分两类: 第 1 层的参照是 v11 的实测基线 (单次运行, 无误差棒);
+#      第 2 层的参照是**解析解** (c=1/2, eta=1/4, k*=(N-1)/|ln lam|, 精确基态谱)。
+
+
+def _schmidt_spectrum(psi, L, tol=1e-12):
+    """
+    半链二分的**归一化 Schmidt 谱** p_k = s_k^2 / sum(s_k^2)。
+
+    与 entanglement_curve 用同一个二分 (前 n 个连续站点), 区别是这里要整个谱,
+    不是它的熵。tol 截断是熵/KL 计算的常规做法 (否则 ln 0 发散); 截断本身是一条
+    诚实边界, 所以把被丢掉的分量数一并返回, 让调用方可以如实报告。
+    """
+    n = L // 2
+    M = psi.reshape(2 ** n, 2 ** (L - n))
+    s = np.linalg.svd(M, compute_uv=False)
+    p_all = s ** 2
+    keep = p_all > tol
+    p = p_all[keep]
+    return p / p.sum(), int((~keep).sum())
+
+
+def metric_gap_closure(rows):
+    """
+    1.3 谱隙闭合残差 —— 逼近临界时相对谱隙 1-r 是否按 1/L 收拢?
+
+    定义: r = p1/p0 是约化密度矩阵前两个本征值之比 (= 幂迭代收敛率)。
+      临界时 r -> 1 (谱隙闭合)。记 g(L) = 1 - r(L), 拟合 g(L) = a/L + b。
+      指标取该拟合的残差 RMS; 并单独检查 a 的符号 (a > 0 才是"在闭合")。
+    诚实边界: 只有 3 个 L (8/12/16), 拟一条直线只剩 1 个自由度 ——
+      残差 RMS 很小是**弱证据**, 不是强证据。这条写进 note。
+    """
+    Ls = np.array([r['L'] for r in rows], dtype=float)
+    g = np.array([1.0 - r['gap'] for r in rows], dtype=float)
+    a, b = np.polyfit(1.0 / Ls, g, 1)
+    resid = float(np.sqrt(np.mean((g - (a / Ls + b)) ** 2)))
+    closing = bool(a > 0)
+    target = 5e-3
+    ok = bool(resid < target and closing)
+    record_metric(
+        1, '谱隙闭合残差', 'RMS of  g(L) = a/L + b,  g = 1 - p1/p0',
+        '相对谱隙 g = 1 - p1/p0 随系统尺寸 L 的闭合行为对 1/L 律的偏离。'
+        '临界性的标志是 g -> 0; 这里量的是它收拢得规不规律。',
+        'spiral_loop() 每圈实测的 gap = p1/p0, 对 L in {8,12,16} 拟合 a/L + b',
+        '解析对照: 临界点处谱隙随 1/L 闭合',
+        resid, None, f'< {target:.0e} 且 a > 0 (方向正确)', ok,
+        note=(f'拟合得 a = {a:.4f} (a > 0 表示确实在闭合), b = {b:.4f}; '
+              f'g 的六个实测值 = {np.round(g, 4).tolist()} '
+              f'(spiral_loop 跑了 6 圈, 但 L 被 max_L=16 夹住, 末 3 圈与第 3 圈同值)。'
+              f'**只有 3 个点拟一条直线, 仅 1 个自由度** —— 残差小是弱证据。'))
+    return {'resid': resid, 'a': float(a), 'b': float(b),
+            'g': g.tolist(), 'closing': closing, 'passed': ok}
+
+
+def metric_mera_consistency(iso, r2_cone):
+    """
+    1.4 MERA 一致性 —— 张量网络自身的约束满足得怎么样?
+
+    定义: 两个子量同时成立才算达标
+      (a) 张量一致性 err = max(等距误差 ||W^dag W - I||, 酉性误差 ||U^dag U - I||)
+      (b) 因果锥线性度 R^2_linear > R^2_log (体是体积律, 而 S(n) 只是面积律)
+    为什么 (a) 要卡到 1e-12: 等距性是 MERA 的**定义性质**, 由 QR 构造保证,
+      所以它应当到机器精度。v11 只把它 print 出来 ("6.66e-16") 而没有判定 ——
+      这正是一个"有数字无判定"的洞, v12 把它补成 bool。
+    """
+    err = float(max(iso['unitary_err'], iso['isometry_err']))
+    lin, lg = float(r2_cone['linear']), float(r2_cone['log'])
+    ok = bool(err < 1e-12 and lin > 0.95 and lin > lg)
+    record_metric(
+        1, 'MERA 一致性', 'max(||W^dag W - I||, ||U^dag U - I||)  与  R^2_linear > R^2_log',
+        '张量网络自身必须满足的两条约束: (a) 解纠缠器酉、等距张量等距, 且到机器精度;'
+        '(b) 因果锥张量数随 n 线性增长 (体是体积律), 优于对数增长。',
+        f'mera_isometry_check(): {iso["n_unitary"]} 个酉 + {iso["n_isometry"]} 个等距; '
+        f'mera_causal_cone(): 线性拟合 R^2={lin:.4f} vs 对数拟合 R^2={lg:.4f}',
+        '解析对照: 等距性是 MERA 的定义性质, 不是拟合结果',
+        err, 6.66e-16, '< 1e-12 且 R^2_linear > 0.95 且 线性 > 对数', ok,
+        note=('v11 只把这两个误差 print 出来, 没有判定 —— v12 补成可证伪的 bool。'
+              '这里能说的是"张量性质成立", **不是**"MERA 拟合得好"; '
+              '拟合质量由 1.1 的中心荷误差负责。'))
+    return {'err': err, 'r2_linear': lin, 'r2_log': lg, 'passed': ok}
+
+
+def metric_chain_rmse(s3a, l2_phys=None):
+    """
+    2.1 因果链拟合 RMSE —— 理论收敛比 与 实测幂迭代率 的均方根偏差。
+
+    定义: 对每组受控谱隙 (gap, eps), 理论预言收敛比 = |lam2/lam1| (由矩阵特征值
+      直接算出), 实测收敛比 = 幂迭代末段步长比的中位数。RMSE = sqrt(mean((t-m)^2))。
+    参照物是**解析量** |lam2/lam1|, 不是拟合值 —— 这是这条指标之所以叫"对标"的原因。
+    """
+    pairs = [(float(s['rate_theory']), float(s['rate_meas']))
+             for s in s3a['gap_sweep']]
+    good = [(t, m) for t, m in pairs if np.isfinite(t) and np.isfinite(m)]
+    rmse = float(np.sqrt(np.mean([(t - m) ** 2 for t, m in good])))
+    target = 1e-2
+    ok = rmse < target
+    phys_note = ''
+    if l2_phys:
+        phys_note = (f'物理算例 (谱隙由纠缠谱派生 gap={l2_phys["gap"]:.6f}): '
+                     f'理论 {l2_phys["rate_theory"]:.6f} vs 实测 '
+                     f'{l2_phys["rate_meas"]:.6f}, 偏差 '
+                     f'{abs(l2_phys["rate_theory"] - l2_phys["rate_meas"]):.2e}。')
+    record_metric(
+        2, '因果链拟合 RMSE', 'RMSE(rate_theory, rate_meas)',
+        '受控谱隙扫描下, 幂迭代的理论收敛比 |lam2/lam1| 与实测收敛比之间的均方根偏差。'
+        '量的是 L2 这条因果链"理论预言能不能被数值复现"。',
+        f'selfref_general_matrix() 的 gap_sweep: {len(good)} 组 (gap, eps) 各取一对 (理论, 实测)',
+        '解析对照: |lam2/lam1| (矩阵特征值直接算出, 非拟合)',
+        rmse, 7.612e-3, f'< {target:.0e}', ok,
+        note=(phys_note + '基线 7.612e-3 由 v11 的 gap_sweep 四组 '
+              '(0.9000/0.8955, 0.5000/0.4878, 0.2000/0.1926, 0.0500/0.0473) '
+              '直接算出, 与本次实测同源 —— 这是复现, 不是改进。'
+              '逐组偏差: 4.49e-3 / 1.22e-2 / 7.41e-3 / 2.74e-3, '
+              '与各组步数 (260/45/22/12) 不对应, 故这里不给出偏差来源的解释。'))
+    return {'rmse': rmse, 'pairs': good, 'passed': ok}
+
+
+def metric_entropy_kl(psi_mera, gs, L):
+    """
+    2.2 纠缠熵 KL 散度 —— MERA 的 Schmidt 谱与精确谱差多远?
+
+    定义: D_KL(p || q) = sum_k p_k ln(p_k / q_k), p = MERA 的归一化 Schmidt 谱,
+      q = 精确基态的。另外报对称化的 Jensen-Shannon 散度 (它天然有限)。
+    为什么用谱而不是只用熵: 熵是一个数, 谱是一个分布 —— 两个态可以有相同的熵
+      却完全不同的谱。KL 对分布形状敏感, 这是它比"熵差多少"更强的地方。
+    诚实边界: 两条谱都在 tol=1e-12 处截断过, 所以这里报的 KL 是**截断后的**,
+      是真实 KL 的一个下界; 被丢掉的分量数一并报告。
+    """
+    p, n_drop_p = _schmidt_spectrum(psi_mera, L)
+    q, n_drop_q = _schmidt_spectrum(gs, L)
+    n = max(len(p), len(q))
+    pp = np.zeros(n); pp[:len(p)] = p
+    qq = np.zeros(n); qq[:len(q)] = q
+    mask = (pp > 0) & (qq > 0)
+    kl = float(np.sum(pp[mask] * np.log(pp[mask] / qq[mask])))
+    m = 0.5 * (pp + qq)
+    # 每一项只在**自己**非零处求和: 若按 mm=(m>0) 统一取支撑, pp 为 0 而 qq 非零的
+    # 位置上会出现 0*log(0) = nan —— 而 JS 之所以要和 KL 并排报, 正是因为它在
+    # 支撑不匹配时**仍然有限**。用 mm 会让这个性质凭空消失。
+    mp, mq = pp > 0, qq > 0
+    js = 0.5 * float(np.sum(pp[mp] * np.log(pp[mp] / m[mp]))) \
+        + 0.5 * float(np.sum(qq[mq] * np.log(qq[mq] / m[mq])))
+    target, target_js = 1e-2, 1e-3
+    ok = bool(kl < target and js < target_js)
+    record_metric(
+        2, '纠缠熵 KL 散度', 'D_KL(p || q),  p,q = 归一化 Schmidt 谱',
+        'MERA 态的 Schmidt 谱 p 相对精确基态谱 q 的 KL 散度; 另报对称化的 JS。'
+        '比"熵差多少"更强: 熵相同而谱不同的两个态, 熵判据看不出来, KL 能。',
+        f'半链二分 SVD, 两条谱均在 1e-12 处截断后重归一化 (L={L})',
+        '解析对照: 精确对角化基态的 Schmidt 谱',
+        kl, None, f'< {target:.0e} nats 且 JS < {target_js:.0e}', ok,
+        note=(f'JS = {js:.3e}。谱在 1e-12 处截断: MERA 丢 {n_drop_p} 个分量, '
+              f'精确态丢 {n_drop_q} 个 —— 所以这个 KL 是真实值的**下界**。'
+              f'支撑长度: MERA {len(p)}, 精确 {len(q)}, 共同 {int(mask.sum())} '
+              f'(KL 只在这个交集上求和)。**反直觉但属实**: 精确基态在 L=16 '
+              f'时已是有效低秩 (最小的保留分量 s={np.sqrt(q[-1]):.2e}), 而 chi=4 的 '
+              f'MERA 反而拖出一条更长的弱尾 —— 熵匹配不代表尾部匹配。'))
+    return {'kl': kl, 'js': js, 'n_p': len(p), 'n_q': len(q),
+            'n_common': int(mask.sum()), 'n_drop_p': n_drop_p,
+            'n_drop_q': n_drop_q, 'passed': ok}
+
+
+
+def metric_jordan_peak(transient):
+    """
+    2.4 Jordan 块收敛率 —— 退化矩阵的瞬态峰值位置能不能被解析预言?
+
+    定义: A = lam*I + N_N (单个 N 阶 Jordan 块, |lam| < 1)。谱隙 |lam2/lam1| = 1,
+      所以**谱分析预言"不收敛"**; 而 ||A^k||_2 会先暴涨再衰减。
+      峰值位置的解析估计: k* = (N-1) / |ln lam|
+        (推导: ||A^k|| 由 Toeplitz 矩阵最大元 C(k,N-1)|lam|^(k-N+1) 主导,
+         对 k 求极值得 (N-1)/k + ln|lam| = 0)
+      指标 = |k_peak_measured - k*| / k*。
+
+    为什么这个指标有分量: 它是一条**真正有预言力的**解析结果 —— 不是"数值和理论一致"
+      这种事后说法, 而是先算出 47.5 再去看数值落在哪里。实测 (N=6, lam=0.9):
+      ||A^k||_2 峰值在 k=49, 状态范数峰值在 k=48。误差 1%~3%。
+    """
+    N = int(transient['N'])
+    lam = float(transient['lam'])
+    k_meas = int(transient['k_peak'])
+    k_norm_meas = int(transient['k_norm_peak'])
+    k_theory = float((N - 1) / abs(np.log(lam))) if 0 < lam < 1 else float('nan')
+    rel = float(abs(k_meas - k_theory) / k_theory) if np.isfinite(k_theory) else float('nan')
+    target = 0.05
+    ok = bool(np.isfinite(rel) and rel < target)
+    record_metric(
+        2, 'Jordan 块收敛率', 'k* = (N-1)/|ln lam|  vs  实测 ||A^k||_2 峰值位置',
+        f'{N} 阶单个 Jordan 块 (lam={lam}) 的幂次范数 ||A^k||_2 的峰值位置, '
+        '与解析估计 k* = (N-1)/|ln lam| 的相对误差。'
+        '它 одновременно证明谱隙判据在此失效 (|lam2/lam1| = 1 却仍有结构) '
+        '且瞬态峰值位置是可预言的。',
+        'selfref_general_matrix() 的 transient: 扫 k=1..300 取 ||A^k||_2 的 argmax',
+        '解析对照: k* = (N-1)/|ln lam| (对 Toeplitz 主元求极值导出)',
+        rel, None, f'相对误差 < {target:.0%}', ok,
+        note=(f'实测: ||A^k||_2 峰值 k={k_meas} (解析 {k_theory:.2f}), '
+              f'状态范数 ||A^k x0|| 峰值 k={k_norm_meas}。'
+              f'谱半径 rho={transient["spectral_radius"]:.4f} < 1, '
+              f'峰值放大 {transient["peak_ratio"]:.1f} 倍, '
+              f'峰值处 ||A^k||_2/rho^k = {transient["peak_over_rho_k"]:.3g} —— '
+              f'谱半径把范数低估了这么多倍, 这就是非正规矩阵的"假收敛"陷阱。'))
+    return {'k_meas': k_meas, 'k_theory': k_theory, 'k_norm_meas': k_norm_meas,
+            'rel': rel, 'passed': ok}
+
+def metric_correlation_exponent(gs, L):
+    """
+    2.3 关联衰减指数 —— 临界 Ising 的关联函数指数 eta 对不对?
+
+    定义: 临界 1+1 维 Ising 普适类里 spin 算符的标度维 Delta_sigma = 1/8,
+      等时关联函数 |C(r)| = A * [(pi/L)/sin(pi r/L)]^(2*Delta_sigma), 即 eta = 2*Delta = 1/4。
+      指标 = 拟合出的 2*Delta 相对 1/4 的相对误差。
+
+    为什么**必须**用共形形式而不是朴素幂律 log|C| ~ -eta log r:
+      本脚本实测过 —— 朴素幂律给 eta = 0.205 (18% 误差), 共形形式给 2*Delta = 0.2426
+      (3% 误差)。有限环上的 sin 修正不可忽略, 朴素幂律是在用错误的函数形式做拟合。
+      朴素幂律的斜率仍然并排打印出来, 作为"选错形式的代价"的对照, 不掩盖。
+    """
+    _, C, _ = boundary_correlation_graph(gs, L)
+    r = np.arange(1, L // 2)
+    y = np.abs(C[0, r])
+    f = (np.pi / L) / np.sin(np.pi * r / L)   # CFT 的周期像, 随 r 单调下降
+    two_delta = float(np.polyfit(np.log(f), np.log(y), 1)[0])   # |C| = A * f^(2*Delta)
+    eta_naive = float(-np.polyfit(np.log(r), np.log(y), 1)[0])
+    exact = 0.25
+    rel = float(abs(two_delta - exact) / exact)
+    target = 0.10
+    ok = rel < target
+    record_metric(
+        2, '关联衰减指数', 'eta = 2*Delta_sigma,  |C(r)| = A*[(pi/L)sin(pi r/L)]^(2*Delta)',
+        '临界 TF-Ising 基态的等时自旋关联函数 C(r) = <sigma^z_0 sigma^z_r> 的衰减指数,'
+        '用共形不变性给出的周期形式拟合 (不是朴素幂律)。',
+        f'boundary_correlation_graph(gs,{L}) 取 C[0,r], r=1..{L//2 - 1}, '
+        f'对 ln|C| 与 ln[(pi/L)/sin(pi r/L)] 做线性拟合',
+        '解析对照: Delta_sigma = 1/8 -> eta = 1/4 (2D Ising / c=1/2 普适类)',
+        two_delta, exact, f'相对误差 < {target:.0%}', ok,
+        note=(f'朴素幂律 log|C| ~ -eta log r 给 eta = {eta_naive:.4f}, '
+              f'相对误差 {abs(eta_naive - exact) / exact:.1%} —— '
+              f'远差于共形形式。这正说明有限环上不能用朴素幂律。'
+              f'MERA 态 (非精确态) 的同量在下方"差距诊断"里给出。'))
+    return {'two_delta': two_delta, 'eta_naive': eta_naive, 'exact': exact,
+            'rel': rel, 'passed': ok}
+
+def exact_ground_state(L, J=1.0, h=1.0):
+    """稀疏 eigsh 求基态。L<=16 时 2^L 可控。返回 (E0, gs)"""
+    H = tfi_periodic_sparse(L, J, h)
+    E, V = eigsh(H, k=1, which='SA')
+    gs = V[:, 0]
+    return float(E[0]), gs / np.linalg.norm(gs)
+
+def boundary_correlation_graph(psi, L, keep_per_node=3):
+    """
+    从 (MERA 或精确) 态的边界关联构造涌现几何:
+        C_ij = <sigma^z_i sigma^z_j>,   d_ij = 1 - |C_ij|
+    每个节点保留距离最近的 keep_per_node 条边 —— 稀疏化, 使图连通且规模可控。
+    站点 0 = 最高有效位 (与 tfi_periodic_sparse 的约定一致)。
+    """
+    psi = np.asarray(psi).reshape(-1)
+    psi = psi / np.linalg.norm(psi)
+    idx = np.arange(2 ** L)
+    bits = (idx[:, None] >> np.arange(L - 1, -1, -1)) & 1
+    z = 1.0 - 2.0 * bits
+    prob = psi ** 2
+    C = np.einsum('s,si,sj->ij', prob, z, z)
+
+    Dm = 1.0 - np.abs(C)
+    np.fill_diagonal(Dm, 0.0)
+    G = nx.Graph()
+    G.add_nodes_from(range(L))
+    for i in range(L):
+        added = 0
+        for j in np.argsort(Dm[i]):
+            if j == i:
+                continue
+            G.add_edge(i, int(j), weight=float(Dm[i, j]))
+            added += 1
+            if added >= keep_per_node:
+                break
+    return G, C, Dm
+
+
+def tfi_periodic_sparse(L, J=1.0, h=1.0):
+    """
+    周期边界 (PBC) 横场 Ising 稀疏哈密顿量:
+        H = -J Sum_i sigma^z_i sigma^z_{i+1} - h Sum_i sigma^x_i
+
+    位序约定 (关键, 与 quimb MERA 的输出指标 k0..k_{L-1} 对齐):
+        站点 i 对应二进制位 (L-1-i), 即 k0 是最高有效位。这样 quimb 收缩
+        出的稠密矢量 reshape(-1) 后, 前 n 个分量恰好对应前 n 个连续站点,
+        纠缠熵 S(n) 的块划分才与物理一致。
+        (v9 的 tfi_hamiltonian 用的是相反位序; 二者由环的反射对称性联系,
+         本征值完全相同, 已实测一致到 7e-15。)
+    """
+    sx = sp.csr_matrix(np.array([[0, 1], [1, 0]], dtype=float))
+    sz = sp.csr_matrix(np.array([[1, 0], [0, -1]], dtype=float))
+
+    Hx = None
+    for i in range(L):
+        b = L - 1 - i
+        m = sp.kron(sp.eye(2 ** b, format='csr'),
+                    sp.kron(sx, sp.eye(2 ** (L - 1 - b), format='csr')),
+                    format='csr')
+        Hx = m if Hx is None else Hx + m
+
+    H = (-h) * Hx
+    for (a, b) in [(i, (i + 1) % L) for i in range(L)]:
+        mat = 1
+        for j in range(L):
+            mat = sp.kron(mat, sz if j in (a, b) else sp.eye(2, format='csr'),
+                          format='csr')
+        H = H + (-J) * mat
+    return ((H + H.T) / 2).tocsr()
+
+
 
 CACHE_DIRNAME = '_v13_cache'
 # v14·F3: 参考侧 Gray-Scott 自建种子 (由 spiral_v14_prepare.py 生成)。
@@ -1160,9 +1895,9 @@ def tier3_structural_ladder(s6, data_dir, clip_seeds=(0, 5, 10),
     _conn = {}
     for _s in seeds:
         _c = b_ref[_s] if float(np.mean(b_ref[_s])) < 0.5 else ~b_ref[_s]
-        _nb = (_ndi.convolve(_c.astype(int), np.ones((3, 3)), mode='wrap')
+        _nb = (ndimage.convolve(_c.astype(int), np.ones((3, 3)), mode='wrap')
                - _c.astype(int))
-        _lab, _nc = _ndi.label(_c, structure=np.ones((3, 3)))
+        _lab, _nc = ndimage.label(_c, structure=np.ones((3, 3)))
         _sz = np.bincount(_lab.ravel())[1:]
         _conn[int(_s)] = {'n_comp': int(_nc),
                           'mean_size': float(_sz.mean()) if _sz.size else 0.0,
@@ -1170,9 +1905,9 @@ def tier3_structural_ladder(s6, data_dir, clip_seeds=(0, 5, 10),
                           'iso_frac': float(((_nb == 0) & _c).sum()
                                             / max(_c.sum(), 1))}
     _cm = b_mod if float(np.mean(b_mod)) < 0.5 else ~b_mod
-    _nbm = (_ndi.convolve(_cm.astype(int), np.ones((3, 3)), mode='wrap')
+    _nbm = (ndimage.convolve(_cm.astype(int), np.ones((3, 3)), mode='wrap')
             - _cm.astype(int))
-    _labm, _ncm = _ndi.label(_cm, structure=np.ones((3, 3)))
+    _labm, _ncm = ndimage.label(_cm, structure=np.ones((3, 3)))
     _szm = np.bincount(_labm.ravel())[1:]
     print(f"    少数相连通块: 模型 {_ncm} 块 (平均 "
           f"{_szm.mean() if _szm.size else 0:.1f} 格); 参考侧 "

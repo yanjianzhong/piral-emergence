@@ -72841,8 +72841,8 @@
     },
     "mera": {
       "isometry": {
-        "unitary_err": 4.440892098500626e-16,
-        "isometry_err": 4.440892098500626e-16,
+        "unitary_err": 3.4476332102925266e-16,
+        "isometry_err": 5.551115123125783e-16,
         "n_unitary": 7,
         "n_isometry": 6
       },
@@ -74187,7 +74187,7 @@
         "n_unitary": 7,
         "n_isometry": 6,
         "unitary_err": 6.661338147750939e-16,
-        "isometry_err": 4.440892098500626e-16,
+        "isometry_err": 6.661338147750939e-16,
         "S": [
           0.4695620727756811,
           0.5647855548275595,
@@ -74223,8 +74223,8 @@
         "E0_per_L": -1.281457723870752,
         "n_unitary": 7,
         "n_isometry": 6,
-        "unitary_err": 7.771561172376096e-16,
-        "isometry_err": 6.661338147750939e-16,
+        "unitary_err": 6.661338147750939e-16,
+        "isometry_err": 9.992007221626409e-16,
         "S": [
           0.47071110086028456,
           0.5769230177303842,
@@ -74260,8 +74260,8 @@
         "E0_per_L": -1.2752871546722913,
         "n_unitary": 15,
         "n_isometry": 14,
-        "unitary_err": 7.771561172376096e-16,
-        "isometry_err": 4.440892098500626e-16,
+        "unitary_err": 5.551115123125783e-16,
+        "isometry_err": 5.551115123125783e-16,
         "S": [
           0.47653193948223405,
           0.5512681304106909,
@@ -74301,7 +74301,7 @@
         "E0_per_L": -1.2752871546722913,
         "n_unitary": 15,
         "n_isometry": 14,
-        "unitary_err": 8.881784197001252e-16,
+        "unitary_err": 1.3322676295501878e-15,
         "isometry_err": 6.661338147750939e-16,
         "S": [
           0.4725499012716765,
@@ -74438,7 +74438,7 @@
     "or_convention": "Ollivier-Ricci 默认 alpha=0 (简单随机游走, 无 idle)",
     "site_ordering": "站点 0 = 最高有效位 (与 quimb 输出指标 k0 对齐)",
     "loop_scale_law": "L_t = clip(round(scale_knob * xi_{t-1}), L0, max_L)",
-    "runtime_sec": 1002.2513477802277
+    "runtime_sec": 1183.702181339264
   },
   "metrics": {
     "tier1": {
@@ -74471,7 +74471,7 @@
         "passed": true
       },
       "mera_consistency": {
-        "err": 4.440892098500626e-16,
+        "err": 5.551115123125783e-16,
         "r2_linear": 0.9770687936191426,
         "r2_log": 0.8380261806254002,
         "passed": true
@@ -75487,8 +75487,8 @@
           5,
           10
         ],
-        "cache_dir": "D:\\dev\\product\\python\\spiral\\data\\_v13_cache",
-        "v14_cache_dir": "D:\\dev\\product\\python\\spiral\\data\\_v14_cache",
+        "cache_dir": "D:\\dev\\product\\python\\piral-emergence\\data\\_v13_cache",
+        "v14_cache_dir": "D:\\dev\\product\\python\\piral-emergence\\data\\_v14_cache",
         "binarize_rule": "v > median (两侧同规则)",
         "soton_image_path_dropped": true
       }

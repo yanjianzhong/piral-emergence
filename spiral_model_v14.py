@@ -197,9 +197,7 @@ import numpy as np
 import scipy.sparse as sp
 from scipy.sparse.linalg import eigsh
 from scipy.optimize import linprog
-from scipy import ndimage          # 第三层: 空洞的连通域标记 (只有这一处用)
 import networkx as nx
-from spiral_metric import GUARDS
 from spiral_metric_v14 import collect_metrics_v14, plot_metrics_v14, metrics_for_json
 warnings.filterwarnings('ignore')
 

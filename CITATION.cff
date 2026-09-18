@@ -22,7 +22,7 @@ keywords:
 identifiers:
  - description: "Concept DOI (all versions)"
    type: doi
-   value: "10.5281/zenodo.22825049"
+   value: "10.5281/zenodo.22810161"
  - description: "Version DOI (v14.2)"
    type: doi
    value: "10.5281/zenodo.22825049"

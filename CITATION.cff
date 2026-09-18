@@ -6,7 +6,7 @@ abstract: "Python implementation of a seven-stage emergence chain from quantum v
 authors:
   - family-names: "Yan"
     given-names: "JianZhong"
-version: v14.1
+version: v14.2
 date-released: 2026-09-18
 repository-code: "https://github.com/yanjianzhong/piral-emergence.git"
 url: "https://github.com/yanjianzhong/piral-emergence"
@@ -22,7 +22,7 @@ keywords:
 identifiers:
  - description: "Concept DOI (all versions)"
    type: doi
-   value: "10.5281/zenodo.22822200"
- - description: "Version DOI (v14.1)"
+   value: "10.5281/zenodo.22825049"
+ - description: "Version DOI (v14.2)"
    type: doi
-   value: "10.5281/zenodo.22822200"
+   value: "10.5281/zenodo.22825049"

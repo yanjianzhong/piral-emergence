@@ -265,6 +265,102 @@ v14 的数值验证：spiral_loop() 跑通，**EXIT=0，流程守卫 39/40 通�
 至于投稿——不急。打算先按"计算实验笔记"持续更新，发**预印本 + 开源代码与审计表**，等同行复现挑刺、补完归因与负对照后再考虑正式投稿。八字真言的"无我无执"已经做到了（诚实边界），"有觉有行"正在路上（v15 落地项明确）。
 
 ---
+
+## 目录结构
+
+```
+.
+├── README.md                      	# 项目说明：七阶段叙事脉络 × 核心数值结论 × 分层许可表 × 诚实边界声明
+├── LICENSE                        		# Apache-2.0 主许可证（v14.1+ 代码适用，含专利授权与报复终止条款）
+├── LICENSE-MIT-v14.0-legacy.md    # v14.0 历史快照的 MIT 许可存档（保留供旧 tag/旧 DOI record 追溯）
+├── CITATION.cff                   	# 引用元数据：软件标题/作者/版本/DOI，GitHub "Cite this repository" 数据源
+├── NOTICE                         		# Apache-2.0 强制分发文件：版权声明 + 项目名 + 商标不使用声明
+├── CONTRIBUTING.md              # 贡献指南：DCO Signed-off-by 流程 + 轻量 CLA + 修改标注要求 + 审计守卫规范
+├── .gitignore                     		# Git 排除规则（排除 __pycache__、临时产物等）
+├── requirements.txt               	# Python 依赖清单（numpy/scipy/matplotlib/quimb/networkx/torch）
+│
+├── spiral_model_v14-1.py          # 核心模型 L1–L2：真空叠加 / 横场 Ising / 量子涨落
+├── spiral_model_v14-2.py          # 核心模型 L3–L4：自指秩1化 / MERA 全息压缩
+├── spiral_metric_v14-1.py         	# 指标 L1–L4：Schmidt 谱 / 纠缠诊断 / 守卫计算
+├── spiral_metric_v14-2.py         	# 指标 L5–L7：离散曲率 / Gray-Scott / 二阶自指约定值
+├── spiral_v14_prepare.py          	# 数据/种子准备（参考侧自建种子由此生成）
+├── spiral_v14_audit.md            	# 七阶段审计表（成熟度分级 + 诚实边界 + 理论接口）
+├── spiral_v14_说明.md             	# 中文补充说明（面向读者的人话版导读）
+├── spiral_v14_Release.md          # v14 发布说明文档（含七阶段成熟度、诚实边界、负对照摘要）
+├── _v14_run.log                   	# 完整运行日志（EXIT=0，守卫 39/40）
+│
+├── data/
+│   ├── _v13_cache/                	# v13 历史缓存（v14 已弃用，仅留作对照基线）
+│   │   ├── bz_reading.npz         	#   Reading 序列缓存（三条序列"未检出"周期）
+│   │   ├── bz_soton.npz           	#   Soton 序列缓存
+│   │   └── clip_gs.npz            	#   Gray-Scott 初始条件缓存
+│   └── _v14_cache/                	# v14 主缓存
+│       ├── archive_provenance.json #   存档来源/生成记录（可复现溯源）
+│       └── gs_seeds.npz           	#   Gray-Scott 初始种子（自建种子，phi 退化为恒等式）
+│
+└── result/
+    ├── spiral_v14.png             	# 主演化示意图
+    ├── spiral_v14_metrics.png     # 指标汇总图
+    ├── _v14_data.json             	# 指标数值导出（供 spiral_v14_audit.md 表格直接引用）
+    └── _v14_hj_scan.png           	# H-J 参数扫描图
+```
+
+> **说明**：`data/_v13_cache/` 为历史对照数据，**v14 主流程不依赖它**；若只复现 v14，可忽略该目录。`data/_v14_cache/` 与 `result/` 由 `spiral_v14_prepare.py` 与主脚本运行后生成/读取。
+
+---
+
+## 安装与依赖
+
+要求 **Python 3.10+**。
+
+```bash
+git clone https://github.com/yanjianzhong/piral-emergence-v14.git
+cd piral-emergence-v14
+```
+
+主要依赖：`numpy`、`scipy`、`matplotlib`，以及 MERA 阶段用到的张量网络库（如 `quimb`）。
+
+---
+
+## 如何复现
+
+
+```bash
+# 数据源说明
+1、Southampton · BZ 油滴网络时空图（Figure_3/4/6.zip、Figure_S1/S2/S3.zip,D0363_readme.txt）
+链接：https://doi.org/10.5258/SOTON/D0363
+内容：Figure_3 全时空图、Figure_4/6、Figure_S1 等 7 个压缩包；主包 Figure_S1 约 64MB，Figure_3 约 10MB
+格式：归档 zip，含提取波特征的步骤说明
+适合：时空图→单帧二值化→Betti/欧拉/波前密度；油滴网络可用于“连通域/空洞”统计
+授权：CC BY；配套论文 Scientific Reports 2018, 10.1038/s41598-018-30819-6
+2. Reading · BZ 自振荡水凝胶延时影像（T_Geher-Herczegh_PhD_Exp_data.zip，1.57GB）
+链接：https://researchdata.reading.ac.uk/467 （DOI 10.17864/1947.000467）
+内容：131 个延时序列，USB 显微镜拍摄，不同凝胶尺寸/几何、催化剂自由 BZ 溶液、不同压缩频率
+格式：延时图像序列
+适合：单通道灰度→阈值→持久同调；机械刺激下波/斑图演化、节律统计
+授权：CC BY 4.0；体量按序列选，
+3，CLIP 反应-扩散基准（gray_scott_data.tar.gz，442MB）
+链接：https://zenodo.org/records/18345087
+内容：gray_scott_data.tar.gz 约 442MB、lambda_omega 约 184MB、其余为 Lotka/MinDE；NumPy npz
+适合：直接替换阶段六 v 场做“同模型不同参数”的结构对标；Betti/空洞/波长/活化面积可全内部验证
+优点：格式干净、2D 网格、可复现；缺点是不算“实验”，论文里只能叫数值基
+
+# 1. 准备数据与种子
+python spiral_v14_prepare.py
+
+
+# 2. 运行核心模型（L1–L4）+ 指标守卫
+python spiral_model_v14.py
+```
+
+- 结果写入 `result/`（`_v14_data.json`、`spiral_v14.png` 等）
+- 完整日志见 `_v14_run.log`
+- **v14 目标运行基线：`EXIT=0`，守卫 39/40 通过**；未通过项在日志与审计表中明确记录为已知限制，非静默失败
+- 审计表：`spiral_v14_audit.md`
+
+> 所有随机种子与参考侧种子均由 `spiral_v14_prepare.py` 再生，确保 `result/` 可完整复现。
+
+
 ## 📄 许可证
 
 | 资产类型 | 许可证 | 说明 |
@@ -290,5 +386,4 @@ NOTICE 文件见 [NOTICE](NOTICE)。
 
 ---
 
-*版本：v14 | 配套文件：`spiral_model_v14`、`spiral_metric_v14`、`七阶段模拟事实审计表.md`、`_v14_run.log`*
 *本 README 仅记录模拟事实与诚实边界；诗性/哲学层面的价值独立于前者成立。*

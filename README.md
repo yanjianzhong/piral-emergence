@@ -337,27 +337,28 @@ cat _v14_run.log
 
 ```bash
 # 数据源说明
-1、Southampton · BZ 油滴网络时空图（Figure_3/4/6.zip、Figure_S1/S2/S3.zip,D0363_readme.txt）
-链接：https://doi.org/10.5258/SOTON/D0363
-内容：Figure_3 全时空图、Figure_4/6、Figure_S1 等 7 个压缩包；主包 Figure_S1 约 64MB，Figure_3 约 10MB
-格式：归档 zip，含提取波特征的步骤说明
-适合：时空图→单帧二值化→Betti/欧拉/波前密度；油滴网络可用于“连通域/空洞”统计
-授权：CC BY；配套论文 Scientific Reports 2018, 10.1038/s41598-018-30819-6
-2. Reading · BZ 自振荡水凝胶延时影像（T_Geher-Herczegh_PhD_Exp_data.zip，1.57GB）
-链接：https://researchdata.reading.ac.uk/467 （DOI 10.17864/1947.000467）
-内容：131 个延时序列，USB 显微镜拍摄，不同凝胶尺寸/几何、催化剂自由 BZ 溶液、不同压缩频率
-格式：延时图像序列
-适合：单通道灰度→阈值→持久同调；机械刺激下波/斑图演化、节律统计
-授权：CC BY 4.0；体量按序列选，
-3，CLIP 反应-扩散基准（gray_scott_data.tar.gz，442MB）
-链接：https://zenodo.org/records/18345087
-内容：gray_scott_data.tar.gz 约 442MB、lambda_omega 约 184MB、其余为 Lotka/MinDE；NumPy npz
-适合：直接替换阶段六 v 场做“同模型不同参数”的结构对标；Betti/空洞/波长/活化面积可全内部验证
-优点：格式干净、2D 网格、可复现；缺点是不算“实验”，论文里只能叫数值基
+# 1、Southampton · BZ 油滴网络时空图（Figure_3/4/6.zip、Figure_S1/S2/S3.zip,D0363_readme.txt）
+# 链接：https://doi.org/10.5258/SOTON/D0363
+# 内容：Figure_3 全时空图、Figure_4/6、Figure_S1 等 7 个压缩包；主包 Figure_S1 约 64MB，Figure_3 约 10MB
+# 格式：归档 zip，含提取波特征的步骤说明
+# 适合：时空图→单帧二值化→Betti/欧拉/波前密度；油滴网络可用于“连通域/空洞”统计
+# 授权：CC BY；配套论文 Scientific Reports 2018, 10.1038/s41598-018-30819-6
+# 2. Reading · BZ 自振荡水凝胶延时影像（T_Geher-Herczegh_PhD_Exp_data.zip，1.57GB）
+# 链接：https://researchdata.reading.ac.uk/467 （DOI 10.17864/1947.000467）
+# 内容：131 个延时序列，USB 显微镜拍摄，不同凝胶尺寸/几何、催化剂自由 BZ 溶液、不同压缩频率
+# 格式：延时图像序列
+# 适合：单通道灰度→阈值→持久同调；机械刺激下波/斑图演化、节律统计
+# 授权：CC BY 4.0；体量按序列选，
+# 3，CLIP 反应-扩散基准（gray_scott_data.tar.gz，442MB）
+# 链接：https://zenodo.org/records/18345087
+# 内容：gray_scott_data.tar.gz 约 442MB、lambda_omega 约 184MB、其余为 Lotka/MinDE；NumPy npz
+# 适合：直接替换阶段六 v 场做“同模型不同参数”的结构对标；Betti/空洞/波长/活化面积可全内部验证
+# 优点：格式干净、2D 网格、可复现；缺点是不算“实验”，论文里只能叫数值基
 
 # 1. 准备数据与种子
-python spiral_v14_prepare.py
-
+# 仓库中data目录中已包含预处理后数据
+# 只有需要重新生成数据，才需要调用此预处理脚本。
+#python spiral_v14_prepare.py
 
 # 2. 运行核心模型（L1–L4）+ 指标守卫
 python spiral_model_v14.py

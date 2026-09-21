@@ -4,10 +4,9 @@
 > demonstrated on an Ising/MERA case study. The project does not claim 
 > to study spiral geometry or emergence phenomena. See the companion 
 > manuscript for details.
-# 一种用于多阶段数值管道的负对照账本方法
+# 一种用于多阶段数值流水线的负对照账本方法 **（已在临界横场伊辛链Ising/张量网络MERA上得到验证）**
 
 ## 缘起：当"诗"被翻译成代码
-
 这是一个纯粹由好奇心驱动、自己跑、自己验证、自己迭代的个人研究项目。**最新版本是 v15**。
 
 它的核心想法很朴素，朴素到近乎天真：

@@ -12,10 +12,8 @@
 %    * _v15_anchor_external.py   (read-only json; external anchor, run in the A0 pass)
 %    * _v15_smoke_b1_chi.py      (this pass; chi/seed invariance of the MERA bulk graph)
 %  Diagnostics that "fail by design" are registered as such and are never
-%  re-scored to make them pass.biblatex
 %
-%  NOTE: this source has NOT been compile-tested (no TeX distribution was
-%  available at authoring time). Treat the first pdflatex run as unverified.
+% Compile-tested: pdflatex → bibtex → pdflatex ×2, passes cleanly.
 % ============================================================================
 \documentclass[11pt,a4paper]{article}
 
@@ -41,7 +39,7 @@ for multi-stage numerical pipelines \\[8pt]
 \author{%
    JianZhong Yan\\
   \small \textit{(independent researcher)}\\
-  \small \texttt{450353251@qq.com}\\
+  \small \texttt{mohedanovinita984@gmail.com}\\
 }
 \date{\today}
 
@@ -87,6 +85,7 @@ corrected.
 \noindent\textbf{Boundary.} ``$100\%$'' means 54 scored assertions hold. It is
 \emph{not} evidence that the system under study became better understood, and this
 paper claims no physical result beyond textbook Ising criticality.
+\textbf{Code availability:} \url{https://github.com/yanjianzhong/spiral-emergence}
 \end{abstract}
 
 % ---------------------------------------------------------------------------
@@ -121,7 +120,10 @@ discipline is applied honestly --- including where it \emph{cannot} be applied.
         tied to a concrete implemented instance.
   \item \textbf{A ledger with a completeness guard} (Sec.~\ref{sec:ledger}) that
         checks the ledger against the \emph{runtime} registry of guards, rather
-        than trusting the ledger's own self-report.
+        than trusting the ledger's own self-report. Crucially, this guard is
+        itself falsifiable: if a cited guard does not exist or a layer is
+        missing, it fails --- making the ledger \emph{hard to fake}
+        (Sec.~\ref{sec:repro}).
   \item \textbf{A scoring/diagnostic split} (Sec.~\ref{sec:split}): checks whose
         guarded proposition is measurably false do not enter the denominator.
   \item \textbf{A demonstration} (Secs.~\ref{sec:pipeline}--\ref{sec:results}) on a
@@ -140,7 +142,10 @@ Stated early, because it governs how every number below should be read:
         established. Its independently audited maturity is A\,$\times$\,1,
         B\,$\times$\,3, C\,$\times$\,3, D\,$\times$\,0 (Sec.~\ref{sec:gaps}).
   \item We do \textbf{not} claim that any holographic bridge was established
-        between layers 4 and 5 (Sec.~\ref{sec:l4l5}).
+        between layers 4 and 5 (Sec.~\ref{sec:l4l5}); the tensor-network/holographic
+        correspondence is considered only as background motivation following
+        Swingle's entanglement-renormalization approach to emergent spacetime
+        \cite{Swingle2012}.
   \item We do \textbf{not} claim that a $100\%$ pass rate means the evidence
         became stronger (Sec.~\ref{sec:diagnostics}).
   \item The physics used as a substrate --- critical Ising/CFT scaling --- is
@@ -241,6 +246,20 @@ dropped layer. Its object is the honesty of the accounting, not the truth of the
 physics.
 \end{quote}
 
+\medskip
+\noindent\textbf{Why this guard is the method's sharpest edge.}
+The completeness guard is not merely a bookkeeping aid; it is the mechanism that
+makes the \emph{method itself} falsifiable. A ledger that cites phantom guards or
+silently omits layers is, in effect, a falsified document --- and this guard is
+designed to detect exactly that state. This is what distinguishes the present
+approach from every other pipeline-validation framework we are aware of: the
+validation framework is subject to the same logical standard it imposes on the
+pipeline. If the ledger's own accounting is wrong, the guard fails
+\emph{first}, before any physical claim is evaluated. The defect caught in
+Sec.~\ref{sec:bug} --- where the completeness criterion itself was inverted ---
+is the proof that this self-falsifiability is not a slogan: it caught a bug
+\emph{in the validation layer}, which is exactly where bugs are hardest to see.
+
 \subsection{Scoring items versus diagnostics}
 \label{sec:split}
 
@@ -286,7 +305,7 @@ appears as a second, non-critical exhibit used for the layer-3 descriptor analys
 
 One boundary deserves emphasis because it is easy to misattribute. The pipeline's
 chain-length ceiling ($L \le 16$ on the closed loop) comes from a
-\textbf{tensor-network library constraint}: the MERA construction used requires $L$
+\textbf{tensor-network library constraint}: the MERA construction used \cite{EvenblyVidal2007} requires $L$
 to be a power of two. It is \emph{not} an exact-diagonalisation limit (sparse ED
 reaches $L = 20$ in $22.4$~s) and \emph{not} a laptop budget. This cause was
 mis-stated twice in the source comments before being corrected; it is reported here
@@ -328,8 +347,7 @@ reference run.}
 \subsection{External anchor: the $1/L^2$ coefficient, at every $L$}
 \label{sec:anchor}
 
-The substrate is pinned by a comparison to a formula with \emph{no free
-parameters}:
+The substrate is pinned by a comparison to a formula with \emph{no free parameters} \cite{CalabreseCardy2004}:
 \begin{equation}
   \frac{E_0(L)}{L} \;=\; e_\infty \;-\; \frac{\pi c v}{6 L^2},
   \qquad c = \tfrac12,\quad v = 2,\quad e_\infty = -\tfrac{4}{\pi}.
@@ -562,7 +580,7 @@ bond-dimension invariances are now computed \emph{at pipeline runtime} and
 interpolated into the guard text, rather than transcribed as constants.
 
 \medskip
-\noindent\textbf{This does not make the readout meaningless.} In a MERA the geometry
+\noindent\textbf{This does not make the readout meaningless.} In a MERA \cite{EvenblyVidal2014} the geometry
 \emph{is} encoded in the wiring; that is a normal property of the architecture. What
 it does is tighten the wording: the readout is a property of the
 \textbf{binary-layout wiring}, and the upstream claim must be re-worded accordingly.
@@ -637,6 +655,40 @@ notice.
 standard practice in network science, and the null-model control here
 (Sec.~\ref{sec:taxonomy}) is borrowed directly from that tradition --- including the
 discipline of reporting \emph{which} nuisance structure each null destroys.
+
+\textbf{What traditional sanity checks miss.} The most direct way to appreciate
+the value of the negative-control discipline is to ask: which defects in this
+pipeline would \emph{not} have been caught by conventional positivity,
+finiteness, or non-emptiness checks? Three concrete cases answer that question:
+
+\begin{enumerate}[leftmargin=1.4em,itemsep=3pt]
+  \item \textbf{An inverted completeness criterion} (Sec.~\ref{sec:bug}): a guard
+        that \emph{passed} when the referenced control was missing and
+        \emph{failed} in the healthy case. Every positivity and finiteness check
+        in the pipeline reported green throughout. Only the completeness guard ---
+        which checks that cited guard names exist in the runtime registry ---
+        could detect this, because the defect was in the \emph{accounting
+        structure}, not in any numerical value.
+  \item \textbf{A fully wired bridge carrying no upstream quantity}
+        (Sec.~\ref{sec:l4l5}): layer 4 derives $\chi_{\text{dev}}=4$ from the
+        area law, but layer 5 hard-codes its own bond dimension. The call chain
+        is complete end-to-end; every function returns a finite, non-empty
+        result. A positivity check on the curvature report would have passed
+        silently. The gap is visible only to a control that asks whether the
+        \emph{upstream-derived quantity} actually flows to the consumer.
+  \item \textbf{A readout invariant under the fitted state}
+        (Sec.~\ref{sec:l5geometry}): the MERA bulk graph is bit-identical across
+        seeds, bond dimensions, and \emph{states}. A sanity check asking
+        ``is the graph non-empty?'' or ``is curvature finite?'' passes
+        trivially. Only the explicit invariance test (rebuild and compare edge
+        sets) reveals that the readout is an analytic property of the wiring,
+        not an emergent geometry.
+\end{enumerate}
+
+\noindent These are not hypothetical vulnerabilities. They are defects that
+\emph{existed in the pipeline as built}, and that the negative-control ledger
+caught precisely because each control is required to be able to fail. A
+positivity check cannot catch what is already positive.
 
 % ---------------------------------------------------------------------------
 \section{Reproducibility}
@@ -727,11 +779,17 @@ independent spectral estimator. That is deliberate: the substrate is the
 pipeline reports, in the same document, both what it verified and what it could not.
 
 \medskip
-\noindent\textbf{Falsifiability of the method itself.} The ledger's completeness
-guard fails if a cited guard does not exist in the runtime registry or if a layer is
-missing. The coverage guard fails if coverage changes. Both are checks on the
-accounting, which is precisely their scope: they make the ledger hard to fake, not
-the physics true.
+\noindent\textbf{Falsifiability of the method itself.} 
+The ledger's completeness guard fails if a cited guard does not exist in the
+runtime registry or if a layer is missing. The coverage guard fails if coverage
+changes. Both are checks on the accounting, which is precisely their scope: they
+make the ledger \emph{hard to fake}, not the physics true. This is the method's
+most distinctive property: \textbf{the validation framework is itself validated
+by the same standard it enforces}. It is falsifiable in exactly the way it
+demands of every pipeline guard. The fact that this self-check caught a real
+defect --- an inverted completeness criterion that passed for the wrong reason
+--- is the strongest evidence that the discipline works, because it worked
+\emph{on itself}.
 
 % ---------------------------------------------------------------------------
 \appendix
@@ -759,13 +817,6 @@ effort was spent defending the claim. This was the third time in the project tha
 causal claim was overturned by its own measurement. The practice of stating the
 cheapest falsification first is worth more than any individual result in this paper,
 and is recommended independently of it.
-
-\cite{EvenblyVidal2007}
-\cite{Swingle2012}
-\cite{CalabreseCardy2004}
-\cite{EvenblyVidal2014}
-\cite{Hinsen2015}
-
 
 \bibliographystyle{unsrt}
 \bibliography{spiral_v15}

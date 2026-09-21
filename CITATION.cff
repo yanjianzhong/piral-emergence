@@ -1,28 +1,27 @@
 cff-version: 1.2.0
-message: "If you use this software or the v14 seven-stage emergence framework, please cite it as below."
+message: "If you use this software or the negative-control ledger method, please cite it as below."
 type: software
-title: "Seven-stage computational emergence framework (v14)"
-abstract: "Python implementation of a seven-stage emergence chain from quantum vacuum to consciousness, with audit tables, quantitative guards, negative controls and explicit honesty boundaries."
+title: "spiral-emergence: negative-control ledger pipeline (v15.0)"
+abstract: "Python implementation of a negative-control ledger for multi-stage numerical pipelines, demonstrated on a critical Ising chain and MERA tensor networks. Includes guard registry, audit tables, reproducibility guards, and runtime completeness checks. Companion code to the manuscript 'A negative-control ledger for multi-stage numerical pipelines — demonstrated on Ising/MERA'."
 authors:
   - family-names: "Yan"
     given-names: "JianZhong"
 version: v15.0
-date-released: 2026-09-20
-repository-code: "https://github.com/yanjianzhong/piral-emergence.git"
-url: "https://github.com/yanjianzhong/piral-emergence"
+date-released: 2026-09-21
+repository-code: "https://github.com/yanjianzhong/spiral-emergence"
 license: Apache-2.0
 keywords:
-  - computational cosmology
-  - emergence
-  - quantum fluctuation
-  - self-reference
+  - negative control
+  - numerical pipeline
   - MERA
-  - discrete geometry
+  - Ising model
+  - tensor networks
   - reproducible research
+  - computational physics
 identifiers:
- - description: "Concept DOI (all versions)"
-   type: doi
-   value: "10.5281/zenodo.22810161"
- - description: "Version DOI (v15.0)"
-   type: doi
-   value: "10.5281/zenodo.22852162"
+  - description: "Zenodo concept DOI (all versions)"
+    type: doi
+    value: "10.5281/zenodo.22810161"
+  - description: "Zenodo version DOI (v15.0)"
+    type: doi
+    value: "10.5281/zenodo.22852162"

@@ -424,8 +424,8 @@ v14 结尾写的是：
 依赖清单在版本目录下（`v15/requirements.txt`，六个包全部锁死版本：`matplotlib==3.11.2`、`networkx==3.5`、`numpy==2.5.3`、`quimb==1.15.0`、`scipy==1.18.1`、`torch==2.9.0`）。
 
 ```bash
-git clone https://github.com/yanjianzhong/piral-emergence.git
-cd piral-emergence
+git clone https://github.com/yanjianzhong/spiral-emergence.git
+cd spiral-emergence
 
 # 核心七阶段流程（v15）—— 必须在 v15/ 目录下运行
 cd v15

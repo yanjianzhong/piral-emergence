@@ -1,4 +1,4 @@
-# Contributing to Spiral Emergence v14
+# Contributing to Spiral Emergence
 
 感谢你考虑为七阶段涌现框架贡献代码或文档。
 
@@ -65,7 +65,7 @@ Signed-off-by: 你的名字 <your.email@example.com>
 
 - Bug 报告：开 Issue，附复现步骤 + 环境信息
 - 学术讨论：优先在 arXiv/Zenodo 评论区或知乎/CSDN 文章下交流
-- 紧急联系：450353251@qq.com
+- 紧急联系：mohedanovinita984@gmail.com
 
 ---
 

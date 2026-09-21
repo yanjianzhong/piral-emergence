@@ -2,14 +2,14 @@
 # ════════════════速查表══════════════════
 git branch                         
 git add -A && git status
-git commit -m "v14.x: <desc>"
+git commit -m "<Version>: <desc>"
 git push origin main
-# 编辑 CITATION.cff version → v14.x, DOI → pending
+# 编辑 CITATION.cff version → <Version>, DOI → pending
 git add CITATION.cff
-git commit -m "bump CITATION.cff to v14.x (DOI pending)"
+git commit -m "bump CITATION.cff to <Version> (DOI pending)"
 git push origin main
-git tag -a v14.x -m "v14.x: <desc>"
-git push origin v14.x
+git tag -a <Version> -m "<Version>: <desc>"
+git push origin <Version>
 # → GitHub 发 Release → 等 Zenodo → 回填 DOI → commit & push
 
 # ═══════════════════════════════════════════
@@ -23,7 +23,7 @@ git branch
 # 2. 提交所有改动
 git add -A
 git status                    # 确认要提交的文件列表
-git commit -m "v14.x: <一句话描述这次改了什么>"
+git commit -m "<Version>: <一句话描述这次改了什么>"
 
 # 3. 推到 GitHub
 git push origin main
@@ -33,15 +33,15 @@ git push origin main
 # ═══════════════════════════════════════════
 
 # 4. 编辑 CITATION.cff：
-#    - version: 改为 v14.x
+#    - version: 改为 <Version>
 #    - identifiers: concept DOI 写已知的（如果没变就沿用旧值），version DOI 写 "pending"
 #    示例：
-#      - description: "Version DOI (v14.x)"
+#      - description: "Version DOI (<Version>)"
 #        type: doi
 #        value: "pending"
 
 git add CITATION.cff
-git commit -m "bump CITATION.cff to v14.x (DOI pending)"
+git commit -m "bump CITATION.cff to <Version> (DOI pending)"
 git push origin main
 
 # ═══════════════════════════════════════════
@@ -49,14 +49,14 @@ git push origin main
 # ═══════════════════════════════════════════
 
 # 5. 打附注 tag（推荐 -a，有 tag message）
-git tag -a v14.x -m "v14.x: <简短描述>"
+git tag -a <Version> -m "<Version>: <简短描述>"
 
 # 6. 推 tag 到 GitHub（Zenodo 从这里开始监听）
-git push origin v14.x
+git push origin <Version>
 
 # 7. 去 GitHub 页面 → Releases → Draft a new release
-#    - Choose tag: v14.x
-#    - Title: v14.x — <描述>
+#    - Choose tag: <Version>
+#    - Title: <Version> — <描述>
 #    - Description: 粘贴 Release notes
 #    - ✅ Set as latest release
 #    - ❌ Pre-release 不要勾
@@ -67,18 +67,18 @@ git push origin v14.x
 # ═══════════════════════════════════════════
 
 # 8. 等 2~5 分钟，打开 Zenodo → Account → GitHub
-#    找到 v14.x record → 复制两个 DOI：
+#    找到 <Version> record → 复制两个 DOI：
 #    - Concept DOI（右侧 "Cite all versions"）
 #    - Version DOI（页面顶部显示的那个）
 
 # 9. 编辑 CITATION.cff，填入真实 DOI：
 #      - description: "Concept DOI (all versions)"
 #        value: "10.5281/zenodo.XXXXXXX"     # 填真实值
-#      - description: "Version DOI (v14.x)"
+#      - description: "Version DOI (<Version>)"
 #        value: "10.5281/zenodo.YYYYYYY"     # 填真实值
 
 git add CITATION.cff
-git commit -m "backfill Zenodo DOI for v14.x"
+git commit -m "backfill Zenodo DOI for <Version>"
 git push origin main
 
 # ═══════════════════════════════════════════

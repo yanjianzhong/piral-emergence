@@ -15,10 +15,14 @@ Pasquale Calabrese and John Cardy.
 \newblock Entanglement entropy and quantum field theory.
 \newblock {\em J. Stat. Mech.}, page P06002, 2004.
 
-\bibitem{EvenblyVidal2015}
+\bibitem{EvenblyVidal2011}
 Glen Evenbly and Guifre Vidal.
-\newblock Tensor network renormalization.
-\newblock {\em Phys. Rev. Lett.}, 115:180405, 2015.
+\newblock Tensor network states and geometry.
+\newblock {\em Phys. Rev. Lett.}, 107.010501, 2011.
 
+\bibitem{Vidal2007}
+Glen Evenbly and Guifre Vidal.
+\newblock Entanglement Renormalization.
+\newblock {\em Phys. Rev. Lett.}, 99.220405, 2007.
 
 \end{thebibliography}

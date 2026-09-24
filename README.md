@@ -1,10 +1,11 @@
 > **Note on naming.** This repository is named `spiral-emergence` for 
 > historical reasons. The scientific contribution of this work is a 
-> **negative-control ledger method for validating numerical pipelines**, 
+> **negative-control ledger for multi-stage numerical pipelines**, 
 > demonstrated on an Ising/MERA case study. The project does not claim 
 > to study spiral geometry or emergence phenomena. See the companion 
 > manuscript for details.
-# 一种用于多阶段数值流水线的负对照账本方法 **（已在临界横场伊辛链Ising/张量网络MERA上得到验证）**
+# A negative-control ledger for multi-stage numerical pipelines, demonstrated on Ising/MERA
+# 一种用于多阶段数值流水线的负对照账本方法 **（以临界横场Ising链/张量网络MERA为例）**
 
 ## 缘起：当"诗"被翻译成代码
 这是一个纯粹由好奇心驱动、自己跑、自己验证、自己迭代的个人研究项目。**最新版本是 v15**。
